@@ -121,28 +121,51 @@ def read_all_channels():
 # USB FUNCTIONS
 # =====================
 def find_usb_mount():
-    possible_roots = ["/media", "/run/media"]
+    """
+    Returns:
+        (device, mountpoint)
+        Example: ('/dev/sda1', '/media/hunter/USB')
+    """
+    try:
+        output = subprocess.check_output(
+            ["lsblk", "-o", "NAME,RM,MOUNTPOINT", "-nr"],
+            text=True
+        )
 
-    for root in possible_roots:
-        if not os.path.exists(root):
-            continue
+        for line in output.splitlines():
+            parts = line.split(None, 2)
 
-        for user in os.listdir(root):
-            user_path = os.path.join(root, user)
-            if not os.path.isdir(user_path):
+            if len(parts) < 3:
                 continue
 
-            for item in os.listdir(user_path):
-                mount_path = os.path.join(user_path, item)
-                if os.path.ismount(mount_path):
-                    return mount_path
+            name, rm, mount = parts
 
-    return None
+            # RM=1 means removable (USB flash drive)
+            if rm == "1" and mount.startswith("/"):
+                device = "/dev/" + name
+                return device, mount
 
+    except Exception as e:
+        print("USB detection error:", e)
 
-def eject_usb(mount_path):
-    subprocess.run(["sync"])
-    subprocess.run(["umount", mount_path])
+    return None, None
+
+def eject_usb(device, mount_path):
+    try:
+        print("Syncing filesystem...")
+        subprocess.run(["sync"])
+
+        print("Unmounting:", mount_path)
+        subprocess.run(["umount", mount_path], check=True)
+
+        print("Powering off USB device:", device)
+        subprocess.run(["udisksctl", "power-off", "-b", device])
+
+        print("USB safely ejected.")
+
+    except Exception as e:
+        print("USB eject failed:", e)
+
 
 # =====================
 # MAIN
@@ -174,14 +197,18 @@ try:
 
     print("Binary capture complete")
 
-    usb_path = find_usb_mount()
-    if usb_path:
-        shutil.copy(bin_file, usb_path)
-        shutil.copy(meta_file, usb_path)
-        eject_usb(usb_path)
-        print(f"Data copied and USB safely ejected: {usb_path}")
-    else:
-        print("USB drive not found; files saved locally")
+    print("Searching for removable USB drives...")
+device, usb_path = find_usb_mount()
+print("Detected device:", device)
+print("Detected mount :", usb_path)
+
+if usb_path:
+    shutil.copy(bin_file, usb_path)
+    shutil.copy(meta_file, usb_path)
+    eject_usb(device, usb_path)
+else:
+    print("No removable USB drive detected.")
+
 
 except KeyboardInterrupt:
     print("Interrupted")
@@ -190,3 +217,4 @@ finally:
     spi.close()
 
     GPIO.cleanup()
+
