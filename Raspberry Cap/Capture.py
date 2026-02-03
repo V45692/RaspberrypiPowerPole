@@ -198,16 +198,16 @@ try:
     print("Binary capture complete")
 
     print("Searching for removable USB drives...")
-device, usb_path = find_usb_mount()
-print("Detected device:", device)
-print("Detected mount :", usb_path)
+    device, usb_path = find_usb_mount()
+    print("Detected device:", device)
+    print("Detected mount :", usb_path)
 
-if usb_path:
-    shutil.copy(bin_file, usb_path)
-    shutil.copy(meta_file, usb_path)
-    eject_usb(device, usb_path)
-else:
-    print("No removable USB drive detected.")
+    if usb_path:
+        shutil.copy(bin_file, usb_path)
+        shutil.copy(meta_file, usb_path)
+        eject_usb(device, usb_path)
+    else:
+        print("No removable USB drive detected.")
 
 
 except KeyboardInterrupt:
@@ -217,4 +217,5 @@ finally:
     spi.close()
 
     GPIO.cleanup()
+
 
