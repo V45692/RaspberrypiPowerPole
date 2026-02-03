@@ -121,11 +121,24 @@ def read_all_channels():
 # USB FUNCTIONS
 # =====================
 def find_usb_mount():
-    for item in os.listdir(USB_MOUNT_BASE):
-        path = os.path.join(USB_MOUNT_BASE, item)
-        if os.path.ismount(path):
-            return path
+    possible_roots = ["/media", "/run/media"]
+
+    for root in possible_roots:
+        if not os.path.exists(root):
+            continue
+
+        for user in os.listdir(root):
+            user_path = os.path.join(root, user)
+            if not os.path.isdir(user_path):
+                continue
+
+            for item in os.listdir(user_path):
+                mount_path = os.path.join(user_path, item)
+                if os.path.ismount(mount_path):
+                    return mount_path
+
     return None
+
 
 def eject_usb(mount_path):
     subprocess.run(["sync"])
@@ -175,4 +188,5 @@ except KeyboardInterrupt:
 
 finally:
     spi.close()
+
     GPIO.cleanup()
